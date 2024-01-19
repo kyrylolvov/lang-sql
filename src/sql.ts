@@ -1,10 +1,10 @@
-import {continuedIndent, indentNodeProp, foldNodeProp, LRLanguage, LanguageSupport} from "@codemirror/language"
-import {Extension} from "@codemirror/state"
-import {Completion, CompletionSource} from "@codemirror/autocomplete"
-import {styleTags, tags as t} from "@lezer/highlight"
-import {parser as baseParser} from "./sql.grammar"
-import {tokens, Dialect, tokensFor, SQLKeywords, SQLTypes, dialect} from "./tokens"
-import {completeFromSchema, completeKeywords} from "./complete"
+import { continuedIndent, indentNodeProp, foldNodeProp, LRLanguage, LanguageSupport } from "@codemirror/language"
+import { Extension } from "@codemirror/state"
+import { Completion, CompletionSource } from "@codemirror/autocomplete"
+import { styleTags, tags as t } from "@lezer/highlight"
+import { parser as baseParser } from "./sql.grammar"
+import { tokens, Dialect, tokensFor, SQLKeywords, SQLTypes, dialect } from "./tokens"
+import { completeFromSchema, completeKeywords } from "./complete"
 
 let parser = baseParser.configure({
   props: [
@@ -12,8 +12,8 @@ let parser = baseParser.configure({
       Statement: continuedIndent()
     }),
     foldNodeProp.add({
-      Statement(tree) { return {from: tree.firstChild!.to, to: tree.to} },
-      BlockComment(tree) { return {from: tree.from + 2, to: tree.to - 2} }
+      Statement(tree) { return { from: tree.firstChild!.to, to: tree.to } },
+      BlockComment(tree) { return { from: tree.from + 2, to: tree.to - 2 } }
     }),
     styleTags({
       Keyword: t.keyword,
@@ -22,6 +22,7 @@ let parser = baseParser.configure({
       Bits: t.number,
       Bytes: t.string,
       Bool: t.bool,
+      PropertyName: t.propertyName,
       Null: t.null,
       Number: t.number,
       String: t.string,
@@ -93,7 +94,7 @@ export class SQLDialect {
     readonly language: LRLanguage,
     /// The spec used to define this dialect.
     readonly spec: SQLDialectSpec
-  ) {}
+  ) { }
 
   /// Returns the language for this dialect as an extension.
   get extension() { return this.language.extension }
@@ -104,11 +105,11 @@ export class SQLDialect {
     let language = LRLanguage.define({
       name: "sql",
       parser: parser.configure({
-        tokenizers: [{from: tokens, to: tokensFor(d)}]
+        tokenizers: [{ from: tokens, to: tokensFor(d) }]
       }),
       languageData: {
-        commentTokens: {line: "--", block: {open: "/*", close: "*/"}},
-        closeBrackets: {brackets: ["(", "[", "{", "'", '"', "`"]}
+        commentTokens: { line: "--", block: { open: "/*", close: "*/" } },
+        closeBrackets: { brackets: ["(", "[", "{", "'", '"', "`"] }
       }
     })
     return new SQLDialect(d, language, spec)
@@ -123,7 +124,7 @@ export interface SQLConfig {
   /// An object that maps table names, optionally prefixed with a
   /// schema name (`"schema.table"`) to options (columns) that can be
   /// completed for that table. Use lower-case names here.
-  schema?: {[table: string]: readonly (string | Completion)[]},
+  schema?: { [table: string]: readonly (string | Completion)[] },
   /// By default, the completions for the table names will be
   /// generated from the `schema` object. But if you want to
   /// customize them, you can pass an array of completions through
@@ -160,8 +161,8 @@ export function keywordCompletion(dialect: SQLDialect, upperCase = false): Exten
 /// for the given configuration.
 export function schemaCompletionSource(config: SQLConfig): CompletionSource {
   return config.schema ? completeFromSchema(config.schema, config.tables, config.schemas,
-                                            config.defaultTable, config.defaultSchema,
-                                            config.dialect || StandardSQL)
+    config.defaultTable, config.defaultSchema,
+    config.dialect || StandardSQL)
     : () => null
 }
 

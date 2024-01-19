@@ -11,6 +11,7 @@ element {
   String |
   Number |
   Bool |
+  PropertyName |
   Null |
   Identifier |
   QuotedIdentifier |
@@ -37,6 +38,7 @@ element {
   String[isolate]
   Number
   Bool
+  PropertyName
   Null
   ParenL[@name="("]
   ParenR[@name=")"]

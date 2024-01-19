@@ -1,8 +1,10 @@
-import {ExternalTokenizer, InputStream} from "@lezer/lr"
-import {whitespace, LineComment, BlockComment, String as StringToken, Number, Bits, Bytes, Bool, Null,
-        ParenL, ParenR, BraceL, BraceR, BracketL, BracketR, Semi, Dot,
-        Operator, Punctuation, SpecialVar, Identifier, QuotedIdentifier,
-        Keyword, Type, Builtin} from "./sql.grammar.terms"
+import { ExternalTokenizer, InputStream } from "@lezer/lr"
+import {
+  whitespace, LineComment, BlockComment, String as StringToken, Number, Bits, Bytes, Bool, Null,
+  ParenL, ParenR, BraceL, BraceR, BracketL, BracketR, Semi, Dot,
+  Operator, Punctuation, SpecialVar, Identifier, QuotedIdentifier,
+  Keyword, Type, Builtin, PropertyName,
+} from "./sql.grammar.terms"
 
 const enum Ch {
   Newline = 10,
@@ -49,7 +51,7 @@ function isHexDigit(ch: number) {
 }
 
 function readLiteral(input: InputStream, endQuote: number, backslashEscapes: boolean) {
-  for (let escaped = false;;) {
+  for (let escaped = false; ;) {
     if (input.next < 0) return
     if (input.next == endQuote && !escaped) { input.advance(); return }
     escaped = backslashEscapes && !escaped && input.next == Ch.Backslash
@@ -58,9 +60,9 @@ function readLiteral(input: InputStream, endQuote: number, backslashEscapes: boo
 }
 
 function readDoubleDollarLiteral(input: InputStream) {
-  for (;;) {
+  for (; ;) {
     if (input.next < 0 || input.peek(1) < 0) return
-    if (input.next == Ch.Dollar && input.peek(1) == Ch.Dollar ) { input.advance(2); return }
+    if (input.next == Ch.Dollar && input.peek(1) == Ch.Dollar) { input.advance(2); return }
     input.advance()
   }
 }
@@ -69,7 +71,7 @@ function readPLSQLQuotedLiteral(input: InputStream, openDelim: number) {
   let matchingDelim = "[{<(".indexOf(String.fromCharCode(openDelim))
   let closeDelim = matchingDelim < 0 ? openDelim : "]}>)".charCodeAt(matchingDelim)
 
-  for (;;) {
+  for (; ;) {
     if (input.next < 0) return
     if (input.next == closeDelim && input.peek(1) == Ch.SingleQuote) {
       input.advance(2)
@@ -82,7 +84,7 @@ function readPLSQLQuotedLiteral(input: InputStream, openDelim: number) {
 function readWord(input: InputStream): void
 function readWord(input: InputStream, result: string): string
 function readWord(input: InputStream, result?: string) {
-  for (;;) {
+  for (; ;) {
     if (input.next != Ch.Underscore && !isAlpha(input.next)) break
     if (result != null) result += String.fromCharCode(input.next)
     input.advance()
@@ -106,7 +108,7 @@ function readBits(input: InputStream, endQuote?: number) {
 }
 
 function readNumber(input: InputStream, sawDot: boolean) {
-  for (;;) {
+  for (; ;) {
     if (input.next == Ch.Dot) {
       if (sawDot) break
       sawDot = true
@@ -134,7 +136,7 @@ function inString(ch: number, str: string) {
 const Space = " \t\r\n"
 
 function keywords(keywords: string, types: string, builtin?: string) {
-  let result: {[name: string]: number} = Object.create(null)
+  let result: { [name: string]: number } = Object.create(null)
   result["true"] = result["false"] = Bool
   result["null"] = result["unknown"] = Null
   for (let kw of keywords.split(" ")) if (kw) result[kw] = Keyword
@@ -157,7 +159,7 @@ export interface Dialect {
   operatorChars: string,
   specialVar: string,
   identifierQuotes: string,
-  words: {[name: string]: number}
+  words: { [name: string]: number }
 }
 
 export const SQLTypes = "array binary bit boolean char character clob date decimal double float int integer interval large national nchar nclob numeric object precision real smallint time timestamp varchar varying "
@@ -190,7 +192,7 @@ export function dialect(spec: Partial<Dialect>, kws?: string, types?: string, bu
 
 export function tokensFor(d: Dialect) {
   return new ExternalTokenizer(input => {
-    let {next} = input
+    let { next } = input
     input.advance()
     if (inString(next, Space)) {
       while (inString(input.next, Space)) input.advance()
@@ -202,16 +204,16 @@ export function tokensFor(d: Dialect) {
       readLiteral(input, next, d.backslashEscapes)
       input.acceptToken(StringToken)
     } else if (next == Ch.Hash && d.hashComments ||
-               next == Ch.Slash && input.next == Ch.Slash && d.slashComments) {
+      next == Ch.Slash && input.next == Ch.Slash && d.slashComments) {
       eol(input)
       input.acceptToken(LineComment)
     } else if (next == Ch.Dash && input.next == Ch.Dash &&
-               (!d.spaceAfterDashes || input.peek(1) == Ch.Space)) {
+      (!d.spaceAfterDashes || input.peek(1) == Ch.Space)) {
       eol(input)
       input.acceptToken(LineComment)
     } else if (next == Ch.Slash && input.next == Ch.Star) {
       input.advance()
-      for (let depth = 1;;) {
+      for (let depth = 1; ;) {
         let cur: number = input.next
         if (input.next < 0) break
         input.advance()
@@ -229,12 +231,12 @@ export function tokensFor(d: Dialect) {
       input.advance()
       readLiteral(input, Ch.SingleQuote, true)
     } else if ((next == Ch.n || next == Ch.N) && input.next == Ch.SingleQuote &&
-               d.charSetCasts) {
+      d.charSetCasts) {
       input.advance()
       readLiteral(input, Ch.SingleQuote, d.backslashEscapes)
       input.acceptToken(StringToken)
     } else if (next == Ch.Underscore && d.charSetCasts) {
-      for (let i = 0;; i++) {
+      for (let i = 0; ; i++) {
         if (input.next == Ch.SingleQuote && i > 1) {
           input.advance()
           readLiteral(input, Ch.SingleQuote, d.backslashEscapes)
@@ -245,8 +247,8 @@ export function tokensFor(d: Dialect) {
         input.advance()
       }
     } else if (d.plsqlQuotingMechanism &&
-               (next == Ch.q || next == Ch.Q) && input.next == Ch.SingleQuote &&
-               input.peek(1) > 0 && !inString(input.peek(1), Space)) {
+      (next == Ch.q || next == Ch.Q) && input.next == Ch.SingleQuote &&
+      input.peek(1) > 0 && !inString(input.peek(1), Space)) {
       let openDelim = input.peek(1)
       input.advance(2)
       readPLSQLQuotedLiteral(input, openDelim)
@@ -280,7 +282,7 @@ export function tokensFor(d: Dialect) {
         input.acceptToken(Bits)
       }
     } else if (next == Ch._0 && (input.next == Ch.x || input.next == Ch.X) ||
-               (next == Ch.x || next == Ch.X) && input.next == Ch.SingleQuote) {
+      (next == Ch.x || next == Ch.X) && input.next == Ch.SingleQuote) {
       let quoted = input.next == Ch.SingleQuote
       input.advance()
       while (isHexDigit(input.next)) input.advance()
@@ -290,7 +292,15 @@ export function tokensFor(d: Dialect) {
       readNumber(input, true)
       input.acceptToken(Number)
     } else if (next == Ch.Dot) {
-      input.acceptToken(Dot)
+      if (isAlpha(input.next) || input.next == Ch.Underscore) {
+        // Advance the stream to the end of the word
+        readWord(input);
+        // Accept it as a property token
+        input.acceptToken(PropertyName);
+      } else {
+        // Otherwise, it's just a dot
+        input.acceptToken(Dot);
+      }
     } else if (next >= Ch._0 && next <= Ch._9) {
       readNumber(input, false)
       input.acceptToken(Number)
